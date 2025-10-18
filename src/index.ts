@@ -6,7 +6,7 @@
 // const PORT = 5001;
 
 // // Telegram config
-// const BOT_TOKEN = "8309180494:AAEcLBk2natbM-jaIiQFey_Za8mf6xGt3J8";
+// const BOT_TOKEN = 
 // const CHAT_ID = "8058699757"; // fixed chat ID
 
 // app.use(bodyParser.json());
