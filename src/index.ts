@@ -1,236 +1,173 @@
-// import express, { Request, Response } from "express";
-// import bodyParser from "body-parser";
-// import axios from "axios";
-
-// const app = express();
-// const PORT = 5001;
-
-// // Telegram config
-// const BOT_TOKEN = 
-// const CHAT_ID = "8058699757"; // fixed chat ID
-
-// app.use(bodyParser.json());
-
-// // Send message to Telegram
-// async function sendToTelegram(message: string) {
-//   try {
-//     await axios.post(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-//       chat_id: CHAT_ID,
-//       text: message,
-//       parse_mode: "HTML",
-//     });
-//   } catch (err) {
-//     console.error("❌ Telegram send error:", err);
-//   }
-// }
-
-// // Format and send each project
-// async function processVollnaEvent(projects: any) {
-//     if (!Array.isArray(projects) || projects.length === 0) {
-//         console.log("no data!!!!!!!!!!!!!!!!!!!!!!!!!")
-//         return;
-//       }
-    
-//     for (const project of projects) {
-//         const msg = `<b>${project.title}</b>\n<b>Budget:</b> ${project.budget} (${project.budget_type})`;
-//         await sendToTelegram(msg);
-//     }
-// }
-
-// // Vollna webhook endpoint
-// app.post("/webhook/vollna", async (req: Request, res: Response) => {
-//   const dataFromVollna = req.body.projects;
-//   console.log("📩 Incoming data from Vollna:", dataFromVollna);
-//   console.log("========================================================")
-//   console.log( dataFromVollna.length )
-//   console.log(typeof(dataFromVollna))
-//   console.log("========================================================")
-
-
-//   await processVollnaEvent(dataFromVollna);
-
-//   res.status(200).send({ message: "Webhook received and forwarded to Telegram" });
-// });
-
-// // Health check
-// app.get("/", (req: Request, res: Response) => {
-//   res.send("✅ Vollna Webhook Listener is running!");
-// });
-
-// app.listen(PORT, () => {
-//   console.log(`🚀 Server listening on http://localhost:${PORT}`);
-// });
 import express, { Request, Response } from "express";
-import bodyParser from "body-parser";
-import fs from "fs";
-import path from "path";
-import dotenv from "dotenv";
-import TelegramBot from "node-telegram-bot-api";
-import { format } from "date-fns-tz";
 
-dotenv.config();
-
-const BOT_TOKEN = process.env.BOT_TOKEN!;
-const PORT = Number(process.env.PORT) || 5001;
-const KEYWORDS = process.env.KEYWORDS || "web|wordpress|javascript";
-const keywordRegex = new RegExp(KEYWORDS, "i");
-
-if (!BOT_TOKEN) throw new Error("BOT_TOKEN not found in .env");
-
-const USERS_FILE = path.join(__dirname, "users.txt");
-
-// ✅ Ensure users.txt exists
-if (!fs.existsSync(USERS_FILE)) {
-  fs.writeFileSync(USERS_FILE, "");
-  console.log("🆕 Created users.txt file");
-}
-
-// ✅ Load known users into memory
-const knownUsers = new Set(
-  fs
-    .readFileSync(USERS_FILE, "utf-8")
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => line.split("|")[0].trim())
-);
-
-// ✅ Start Telegram bot (polling mode — no webhook needed)
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
-console.log("🤖 Telegram bot started (polling mode)");
-
-// 🕒 Helper to get current Tokyo time
-function getTokyoTime(): string {
-  return format(new Date(), "yyyy-MM-dd HH:mm:ssXXX", { timeZone: "Asia/Tokyo" });
-}
-
-// 💾 Save a new Telegram user
-function saveUser(username: string | undefined, chatId: number): boolean {
-  if (!username) username = `id_${chatId}`;
-
-  if (!knownUsers.has(username)) {
-    knownUsers.add(username);
-    const dateStr = getTokyoTime();
-    fs.appendFileSync(USERS_FILE, `${username} | ${chatId} | ${dateStr}\n`);
-    console.log(`✅ Added new user: ${username} (${chatId}) at ${dateStr}`);
-    return true;
-  }
-  return false;
-}
-
-// 📤 Send a message to all users
-async function broadcastToAllUsers(text: string) {
-  const lines = fs.readFileSync(USERS_FILE, "utf-8").split("\n").filter(Boolean);
-  if (lines.length === 0) {
-    console.warn("⚠️ No users to send to.");
-    return;
-  }
-
-  for (const line of lines) {
-    const parts = line.split("|").map((p) => p.trim());
-    const chatId = Number(parts[1]);
-    if (!chatId) continue;
-
-    try {
-      await bot.sendMessage(chatId, text, { parse_mode: "HTML", disable_web_page_preview: true });
-      console.log(`📨 Sent message to ${chatId}`);
-    } catch (err) {
-      console.error(`❌ Failed to send to ${chatId}:`, err);
-    }
-  }
-}
-
-// 💬 Handle Telegram messages
-bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
-  const username = msg.from?.username;
-  const fullName = `${msg.from?.first_name || ""} ${msg.from?.last_name || ""}`.trim() || "there";
-  const isNewUser = saveUser(username, chatId);
-
-  // /stop command → unsubscribe
-  if (msg.text?.startsWith("/stop")) {
-    const lines = fs
-      .readFileSync(USERS_FILE, "utf-8")
-      .split("\n")
-      .filter(Boolean)
-      .filter((line) => !line.includes(String(chatId)));
-    fs.writeFileSync(USERS_FILE, lines.join("\n") + "\n");
-    knownUsers.delete(username || `id_${chatId}`);
-    await bot.sendMessage(chatId, "❌ You have been unsubscribed from Vollna alerts.");
-    console.log(`🗑️ Removed user: ${chatId}`);
-    return;
-  }
-
-  // /start or any first message
-  if (isNewUser) {
-    await bot.sendMessage(chatId, `👋 Dear ${fullName}, you are now subscribed to Vollna project alerts!`);
-  } else {
-    await bot.sendMessage(chatId, `Hi again, ${fullName}! You’re still subscribed ✅`);
-  }
-});
-
-//
-// ===== Express Server for Vollna Webhook =====
-//
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
 
-// 📨 Vollna webhook endpoint
-app.post("/webhook/vollna", async (req: Request, res: Response) => {
-  const data = req.body.projects;
+const PORT = 5000;
 
-  if (!Array.isArray(data) || data.length === 0) {
-    console.log("⚠️ No project data received");
-    return res.status(400).send({ error: "Invalid or empty data" });
+const SLACK_WEBHOOK_URL =
+  "";
+
+// 🧠 FILTER 1: US location
+function filterLocationUS(project: any): string | null {
+  const locations = project?.preferred_qualifications?.locations || [];
+
+  const isUSOnly =
+    Array.isArray(locations) &&
+    locations.length === 1 &&
+    locations[0]?.toLowerCase() === "united states";
+
+  return isUSOnly ? "location_us_only" : null;
+}
+
+// 🧠 FILTER 2: English skill
+function filterEnglishNative(project: any): string | null {
+  const skill = project?.preferred_qualifications?.pref_english_skill;
+
+  if (skill === "Native or Bilingual") {
+    return "english_native_or_bilingual";
   }
 
-  console.log(`📩 Received ${data.length} new projects`);
-  let jobIndex = 1;
-  await broadcastToAllUsers('🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟🌟');
-  for (const project of data) {
-    // Combine searchable fields
-    const combinedText = `${project.title || ""} ${project.description || ""} ${project.skills || ""}`;
+  return null;
+}
 
-    // 🔍 Filter using keywords from .env
-    if (!keywordRegex.test(combinedText)) {
-      console.log(`⏩ Skipped (no keyword match): ${project.title}`);
-      continue;
+// 🧠 FILTER 3: High-value client
+function filterHighPaidClient(project: any): string | null {
+  const c = project?.client_details || {};
+
+  const avgRate = c.avg_hourly_rate_paid;
+  const spent = c.total_spent;
+  const hires = c.total_hires;
+
+  const condition1 = typeof avgRate === "number" && avgRate > 50;
+
+  const condition2 =
+    typeof spent === "number" &&
+    typeof hires === "number" &&
+    hires > 0 &&
+    spent / hires > 2000;
+
+  if (condition1 || condition2) {
+    return "high_paid_client";
+  }
+
+  return null;
+}
+
+function filterBudgetOrExpert(project: any): string | null {
+  const budgetStr = project?.budget || "";
+  const type = project?.budget_type;
+  const experience = project?.experience_level;
+
+  // Extract numbers from string (e.g. "25 - 60 USD" → [25, 60])
+  const numbers = (budgetStr.match(/\d+/g) || []).map(Number);
+
+  let max = 0;
+
+  if (numbers.length === 1) {
+    max = numbers[0];
+  } else if (numbers.length >= 2) {
+    max = Math.max(...numbers);
+  }
+
+  // Condition 1: hourly > 50
+  const isHighHourly =
+    type === "hourly" && max > 50;
+
+  // Condition 2: fixed > 2000
+  const isHighFixed =
+    type === "fixed" && max > 2000;
+
+  // Condition 3: fallback (no clear budget + expert)
+  const isExpertFallback =
+    (!budgetStr || budgetStr === "Not specified" || max === 0) &&
+    experience === "Expert";
+
+  if (isHighHourly || isHighFixed || isExpertFallback) {
+    return "highbudget_or_expert";
+  }
+
+  return null;
+}
+
+// 📤 Slack sender
+async function sendToSlack(project: any, tags: string[]) {
+  const client = project.client_details || {};
+
+  const country = client.country?.name || "Unknown";
+  const title = project.title || "No title";
+  const url = project.url || "#";
+
+  const message = {
+    text: `
+🌍 *${country}* 🔥 ${tags.join(", ")} 
+📌 <${url}|${title}>
+    `.trim(),
+  };
+
+  await fetch(SLACK_WEBHOOK_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(message),
+  });
+}
+
+// 📨 Webhook endpoint
+app.post("/webhook/vollna", async (req: Request, res: Response) => {
+  try {
+    const projects = req.body?.projects;
+
+    if (!Array.isArray(projects) || projects.length === 0) {
+      console.warn("⚠️ No project data received");
+      return res.sendStatus(400);
     }
 
-    // Format message (now includes description)
-    const msg = `
-🌟🌟🌟<b>#${jobIndex} ${KEYWORDS}</b>🌟🌟🌟
-    <b>${project.title}</b>
-💰 <b>Budget:</b> ${project.budget} (${project.budget_type})
-💼 <b>Skills:</b> ${project.skills || "N/A"}
-🌍 <b>Country:</b> ${project.client_details?.country?.name || "Unknown"}
-⭐️ <b>Client Rank:</b> ${project.client_details.rank || "N/A"}
-💳 <b>Payment Verified:</b> ${project.client_details.payment_method_verified ? "✅ Yes" : "❌ No"}
-👥 <b>Total Hires:</b> ${project.client_details.total_hires ?? "N/A"}
-💸 <b>Total Spent:</b> ${project.client_details.total_spent ?? "N/A"}
-⏱️ <b>Avg Hourly Rate Paid:</b> ${project.client_details.avg_hourly_rate_paid ?? "N/A"}
-🌟 <b>Rating:</b> ${project.client_details.rating ?? "N/A"}
-💬 <b>Reviews:</b> ${project.client_details.reviews ?? "N/A"}
-🕐 <b>Registered:</b> ${project.client_details.registered_at ?? "Unknown"}
-🧠 <b>Description:</b>
-${project.description?.slice(0, 2000) || "No description provided."}
+    console.log(`📩 Received ${projects.length} projects`);
 
-🔗 <a href="${project.url || "#"}">View Project</a>`;
+    const filters = [
+      filterLocationUS,
+      filterEnglishNative,
+      filterHighPaidClient,
+      filterBudgetOrExpert,
+    ];
 
-    console.log("-----------------------------------------------------------------------");
-    console.log(project);
+    for (const project of projects) {
+      const matchedFilters: string[] = [];
 
-    await broadcastToAllUsers(msg);
-    jobIndex++;
+      for (const filter of filters) {
+        const result = filter(project);
+        if (result) matchedFilters.push(result);
+      }
+      // OR logic: pass if ANY filter matches
+      if (matchedFilters.length === 0) {
+        console.log("⛔ No filters matched");
+        continue;
+      }
+
+      console.log(
+        `✅ Matched: ${matchedFilters.join(", ")} | ${project.title}`
+      );
+
+      await sendToSlack(project, matchedFilters);
+    }
+
+    return res.sendStatus(200);
+  } catch (err) {
+    console.error("❌ Error:", err);
+    return res.sendStatus(500);
   }
-
-  res.status(200).send({ message: "Projects sent to Telegram subscribers" });
 });
 
 // ✅ Health check
-app.get("/", (_, res) => res.send("✅ Vollna Webhook Listener + Telegram Bot is running!"));
+app.get("/", (_: Request, res: Response) => {
+  res.send("✅ Webhook server running");
+});
 
 // 🚀 Start server
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on http://103.179.45.85:${PORT}`);
-  console.log(`🔍 Active keyword filter: ${KEYWORDS}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
+
