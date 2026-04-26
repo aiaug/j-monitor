@@ -170,4 +170,4 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
-
+//pm2 start npx --name jobmonitor -- ts-node src/index.ts
