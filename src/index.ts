@@ -1,31 +1,45 @@
 import express, { Request, Response } from "express";
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "5mb" }));
+// app.use(express.json());
 
 const PORT = 5000;
 
 const SLACK_WEBHOOK_URL =
-  "";
+
 
 // 🧠 FILTER 1: US location
 function filterLocationUS(project: any): string | null {
-  const locations = project?.preferred_qualifications?.locations || [];
+  const locations = project?.preferred_qualifications?.locations ?? [];
+  const usOnlyFlag = project?.us_only;
 
-  const isUSOnly =
+  const hasUS =
     Array.isArray(locations) &&
-    locations.length === 1 &&
-    locations[0]?.toLowerCase() === "united states";
+    locations.some(
+      (loc: string) =>
+        typeof loc === "string" &&
+        loc.toLowerCase().trim() === "united states"
+    );
 
-  return isUSOnly ? "location_us_only" : null;
+  const isNotUSOnly = usOnlyFlag !== true;
+
+  if (hasUS && isNotUSOnly) {
+    return "US_INCLUDING";
+  }
+
+  return null;
 }
 
-// 🧠 FILTER 2: English skill
 function filterEnglishNative(project: any): string | null {
   const skill = project?.preferred_qualifications?.pref_english_skill;
+  const usOnlyFlag = project?.us_only;
 
-  if (skill === "Native or Bilingual") {
-    return "english_native_or_bilingual";
+  const isNativeOrBilingual = skill === "Native or Bilingual";
+  const isNotUSOnly = usOnlyFlag === false;
+
+  if (isNativeOrBilingual && isNotUSOnly) {
+    return "ENGLISH";
   }
 
   return null;
@@ -48,7 +62,66 @@ function filterHighPaidClient(project: any): string | null {
     spent / hires > 2000;
 
   if (condition1 || condition2) {
-    return "high_paid_client";
+    return "HIGH_PAID";
+  }
+
+  return null;
+}
+
+function filterUSOnly(project: any): string | null {
+  const usOnlyFlag = project?.us_only;
+
+  if (usOnlyFlag === true) {
+    return "ONLY_US";
+  }
+
+  return null;
+}
+
+function filterLowQualityClient(project: any): string | null {
+  const client = project?.client_details || {};
+
+  const rating = client?.rating;
+  const categories = project?.categories || [];
+
+  const budgetStr = project?.budget || "";
+  const type = project?.budget_type;
+
+  // ⭐ Only Web category now
+  const isTechCategory =
+    Array.isArray(categories) &&
+    categories.some((c: string) =>
+      c === "Web, Mobile & Software Dev" ||
+      c === "IT & Networking"
+    );
+
+  if (!isTechCategory) return null;
+
+  // ⭐ Low rating
+  const isLowRating =
+    typeof rating === "number" && rating >= 0.5 && rating <= 3.5;
+
+  // ⭐ Extract budget
+  const clean = budgetStr.replace(/,/g, "");
+  const numbers = (clean.match(/\d+(\.\d+)?/g) || []).map(Number);
+
+  let max = 0;
+
+  if (numbers.length === 1) {
+    max = numbers[0];
+  } else if (numbers.length >= 2) {
+    max = Math.max(...numbers);
+  }
+
+  // ⭐ Low budget
+  const isLowHourly = type === "hourly" && max <= 10;
+  const isLowFixed = type === "fixed" && max <= 20;
+
+  const isLowBudget = isLowHourly || isLowFixed;
+
+  // ✅ FINAL CONDITION (OR logic)
+  if (isLowRating || isLowBudget) {
+    return "POOR_CLIENT";
   }
 
   return null;
@@ -59,8 +132,9 @@ function filterBudgetOrExpert(project: any): string | null {
   const type = project?.budget_type;
   const experience = project?.experience_level;
 
-  // Extract numbers from string (e.g. "25 - 60 USD" → [25, 60])
-  const numbers = (budgetStr.match(/\d+/g) || []).map(Number);
+  // ✅ FIX: remove commas before extracting numbers
+  const clean = budgetStr.replace(/,/g, "");
+  const numbers = (clean.match(/\d+(\.\d+)?/g) || []).map(Number);
 
   let max = 0;
 
@@ -69,22 +143,21 @@ function filterBudgetOrExpert(project: any): string | null {
   } else if (numbers.length >= 2) {
     max = Math.max(...numbers);
   }
-
-  // Condition 1: hourly > 50
+  // Condition 1: hourly > 45
   const isHighHourly =
-    type === "hourly" && max > 50;
+    type === "hourly" && max > 59;
 
-  // Condition 2: fixed > 2000
+  // Condition 2: fixed > 1999
   const isHighFixed =
-    type === "fixed" && max > 2000;
+    type === "fixed" && max > 1999;
 
   // Condition 3: fallback (no clear budget + expert)
-  const isExpertFallback =
-    (!budgetStr || budgetStr === "Not specified" || max === 0) &&
-    experience === "Expert";
+  // const isExpertFallback =
+  //   (!budgetStr || budgetStr === "Not specified" || max === 0) &&
+  //   experience === "Expert";
 
-  if (isHighHourly || isHighFixed || isExpertFallback) {
-    return "highbudget_or_expert";
+  if (isHighHourly || isHighFixed) {
+    return "HIGH_BUDGET";
   }
 
   return null;
@@ -94,15 +167,47 @@ function filterBudgetOrExpert(project: any): string | null {
 async function sendToSlack(project: any, tags: string[]) {
   const client = project.client_details || {};
 
-  const country = client.country?.name || "Unknown";
+  const countryCode = client.country?.iso_code2 || "";
+
   const title = project.title || "No title";
   const url = project.url || "#";
 
+  const budget = project?.budget || "Not specified";
+  const budgetType = project?.budget_type || "";
+  const categories = project?.categories || [];
+
+  const isUSOnly = project?.us_only === true;
+
+  // 🇺🇸 for US-only, otherwise 📌
+  // const icon = isUSOnly ? "🔴" : "🔵";
+
+  // convert country code → flag emoji
+  function getFlagEmoji(code: string) {
+    if (!code) return "🌍";
+    return code
+      .toUpperCase()
+      .replace(/./g, char =>
+        String.fromCodePoint(127397 + char.charCodeAt(0))
+      );
+  }
+
+  const flag = getFlagEmoji(countryCode);
+
+  const categoriesText =
+    Array.isArray(categories) && categories.length > 0
+      ? categories.join(" → ")
+      : "No category";
+
+        // ✅ Low quality marker
+  const isLowQuality = tags.includes("lowQualityClient");
+  const icon = `${isLowQuality ? "⚠️ " : ""} ${isUSOnly ? "🔴" : "🔵"}`;
+
   const message = {
     text: `
-🌍 *${country}* 🔥 ${tags.join(", ")} 
-📌 <${url}|${title}>
-    `.trim(),
+        ${icon} ${flag} <${url}|${title}>
+            ${tags.join(", ")}
+            ${budget} ${budgetType ? `(${budgetType})` : ""} : ${categoriesText}
+            `.trim(),
   };
 
   await fetch(SLACK_WEBHOOK_URL, {
@@ -131,6 +236,8 @@ app.post("/webhook/vollna", async (req: Request, res: Response) => {
       filterEnglishNative,
       filterHighPaidClient,
       filterBudgetOrExpert,
+      filterLowQualityClient,
+      // filterUSOnly,
     ];
 
     for (const project of projects) {
@@ -145,10 +252,6 @@ app.post("/webhook/vollna", async (req: Request, res: Response) => {
         console.log("⛔ No filters matched");
         continue;
       }
-
-      console.log(
-        `✅ Matched: ${matchedFilters.join(", ")} | ${project.title}`
-      );
 
       await sendToSlack(project, matchedFilters);
     }
@@ -170,4 +273,4 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
 
-//pm2 start npx --name jobmonitor -- ts-node src/index.ts
+//pm2 start npx --name jobmonitor -- ts-node src/index.ts   pm2 restart jobmonitor
