@@ -6,8 +6,21 @@ app.use(express.json({ limit: "5mb" }));
 
 const PORT = 5000;
 
-const SLACK_WEBHOOK_URL =
-
+const SLACK_WEBHOOK_URL = 
+const ENABLED_CATEGORIES = [
+  "Accounting & Consulting",
+  "Admin Support",
+  "Customer Service",
+  "Data Science & Analytics",
+  "Design & Creative",
+  "Engineering & Architecture",
+  "IT & Networking",
+  "Legal",
+  "Sales & Marketing",
+  "Translation",
+  "Web, Mobile & Software Dev",
+  // "Writing",
+];
 
 // 🧠 FILTER 1: US location
 function filterLocationUS(project: any): string | null {
@@ -199,14 +212,25 @@ async function sendToSlack(project: any, tags: string[]) {
       : "No category";
 
         // ✅ Low quality marker
-  const isLowQuality = tags.includes("lowQualityClient");
+  const isLowQuality = tags.includes("POOR_CLIENT");
   const icon = `${isLowQuality ? "⚠️ " : ""} ${isUSOnly ? "🔴" : "🔵"}`;
+
+  // const firstCategory = Array.isArray(categories) ? categories[0] : "";
+  // const categoryMark =
+  // firstCategory === "Web, Mobile & Software Dev" ||
+  // firstCategory === "IT & Networking"
+  //   ? "⚡"
+  //   : "";
+
+  const totalHires = client?.total_hires;
+  const isZeroHire = totalHires === 0;
+  const zeroHireMark = isZeroHire ? "❄️" : "";
 
   const message = {
     text: `
-        ${icon} ${flag} <${url}|${title}>
-            ${tags.join(", ")}
+        ${icon} ${flag} ${zeroHireMark} <${url}|${title}>
             ${budget} ${budgetType ? `(${budgetType})` : ""} : ${categoriesText}
+            ${tags.join(", ")}
             `.trim(),
   };
 
@@ -241,6 +265,17 @@ app.post("/webhook/vollna", async (req: Request, res: Response) => {
     ];
 
     for (const project of projects) {
+      // ✅ CATEGORY CONTROL (ADD HERE)
+      const categories = project?.categories || [];
+      const isAllowedCategory =
+        ENABLED_CATEGORIES.length === 0 ||
+        (Array.isArray(categories) &&
+          categories.some((c: string) => ENABLED_CATEGORIES.includes(c)));
+
+      if (!isAllowedCategory) {
+        continue; // ❌ skip this project early
+      }
+
       const matchedFilters: string[] = [];
 
       for (const filter of filters) {
