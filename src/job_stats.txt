@@ -1,0 +1,59 @@
+Data Science & Analytics → Data Analysis & Testing : 23
+Customer Service → Customer Service & Tech Support : 20
+Web, Mobile & Software Dev → Web & Mobile Design : 62
+Design & Creative → Audio & Music Production : 7
+Web, Mobile & Software Dev → AI Apps & Integration : 5
+Sales & Marketing → Digital Marketing : 110
+Design & Creative → Art & Illustration : 6
+Web, Mobile & Software Dev → Mobile Development : 41
+Admin Support → Market Research & Product Reviews : 9
+Sales & Marketing → Marketing, PR & Brand Strategy : 25
+Web, Mobile & Software Dev → Web Development : 102
+Design & Creative → Product Design : 18
+Legal → Corporate & Contract Law : 30
+Web, Mobile & Software Dev → Ecommerce Development : 25
+Engineering & Architecture → Building & Landscape Architecture : 13
+Sales & Marketing → Lead Generation & Telemarketing : 53
+Accounting & Consulting → Management Consulting & Analysis : 20
+Legal → Public Law : 11
+Accounting & Consulting → Accounting & Bookkeeping : 34
+Translation → Language Tutoring & Interpretation : 2
+Writing → Editing & Proofreading Services : 13
+Accounting & Consulting → Financial Planning : 19
+Design & Creative → Video & Animation : 99
+Engineering & Architecture → Electrical & Electronic Engineering : 8
+Writing → Professional & Business Writing : 15
+Engineering & Architecture → Civil & Structural Engineering : 9
+Web, Mobile & Software Dev → Product Management & Scrum : 5
+Data Science & Analytics → Data Extraction/ETL : 4
+Engineering & Architecture → 3D Modeling & CAD : 22
+Design & Creative → Graphic, Editorial & Presentation Design : 58
+Translation → Translation & Localization Services : 15
+Web, Mobile & Software Dev → Desktop Application Development : 2
+IT & Networking → DevOps & Solution Architecture : 15
+Web, Mobile & Software Dev → QA & Testing : 4
+Design & Creative → Branding & Logo Design : 24
+Writing → Content Writing : 18
+Design & Creative → Performing Arts : 28
+IT & Networking → Network & System Administration : 17
+Web, Mobile & Software Dev → Scripts & Utilities : 19
+Legal → International & Immigration Law : 3
+IT & Networking → Database Management & Administration : 2
+Data Science & Analytics → AI & Machine Learning : 15
+Accounting & Consulting → Recruiting & Human Resources : 5
+IT & Networking → Information Security & Compliance : 10
+Accounting & Consulting → Other - Accounting & Consulting : 10
+Admin Support → Data Entry & Transcription Services : 7
+Admin Support → Virtual Assistance : 14
+Design & Creative → Photography : 7
+Engineering & Architecture → Contract Manufacturing : 2
+Admin Support → Project Management : 5
+Engineering & Architecture → Interior & Trade Show Design : 6
+IT & Networking → ERP/CRM Software : 5
+Data Science & Analytics → Data Mining & Management : 3
+Engineering & Architecture → Energy & Mechanical Engineering : 7
+Writing → Sales & Marketing Copywriting : 6
+Web, Mobile & Software Dev → Other - Software Development : 3
+Accounting & Consulting → Personal & Professional Coaching : 4
+Web, Mobile & Software Dev → Blockchain, NFT & Cryptocurrency : 2
+Engineering & Architecture → Physical Sciences : 1

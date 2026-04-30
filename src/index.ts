@@ -1,4 +1,6 @@
 import express, { Request, Response } from "express";
+import fs from "fs";
+import path from "path";
 
 const app = express();
 app.use(express.json({ limit: "5mb" }));
@@ -19,8 +21,9 @@ const ENABLED_CATEGORIES = [
   "Sales & Marketing",
   "Translation",
   "Web, Mobile & Software Dev",
-  // "Writing",
+  "Writing",
 ];
+const STATS_FILE = path.join(__dirname, "job_stats.txt");
 
 // 🧠 FILTER 1: US location
 function filterLocationUS(project: any): string | null {
@@ -176,6 +179,54 @@ function filterBudgetOrExpert(project: any): string | null {
   return null;
 }
 
+function ensureStatsFile() {
+  if (!fs.existsSync(STATS_FILE)) {
+    fs.writeFileSync(STATS_FILE, "", "utf-8");
+  }
+}
+
+function readStats(): Record<string, number> {
+  ensureStatsFile();
+
+  const data = fs.readFileSync(STATS_FILE, "utf-8");
+  const lines = data.split("\n").filter(Boolean);
+
+  const stats: Record<string, number> = {};
+
+  for (const line of lines) {
+    const [key, value] = line.split(" : ");
+    stats[key] = Number(value) || 0;
+  }
+
+  return stats;
+}
+
+function writeStats(stats: Record<string, number>) {
+  const lines = Object.entries(stats).map(
+    ([key, value]) => `${key} : ${value}`
+  );
+
+  fs.writeFileSync(STATS_FILE, lines.join("\n"), "utf-8");
+}
+
+function updateCategoryStats(project: any) {
+  const categories = project?.categories || [];
+
+  if (!Array.isArray(categories) || categories.length === 0) return;
+
+  const key =
+    categories.length >= 2
+      ? `${categories[0]} → ${categories[1]}`
+      : categories[0];
+
+  const stats = readStats();
+
+  stats[key] = (stats[key] || 0) + 1;
+
+  writeStats(stats);
+}
+
+
 // 📤 Slack sender
 async function sendToSlack(project: any, tags: string[]) {
   const client = project.client_details || {};
@@ -258,10 +309,10 @@ app.post("/webhook/vollna", async (req: Request, res: Response) => {
     const filters = [
       filterLocationUS,
       filterEnglishNative,
-      filterHighPaidClient,
-      filterBudgetOrExpert,
+      // filterHighPaidClient,
+      // filterBudgetOrExpert,
       filterLowQualityClient,
-      // filterUSOnly,
+      filterUSOnly,
     ];
 
     for (const project of projects) {
@@ -289,8 +340,11 @@ app.post("/webhook/vollna", async (req: Request, res: Response) => {
       }
 
       await sendToSlack(project, matchedFilters);
+      // const isStats = matchedFilters.includes("POOR_CLIENT") || matchedFilters.includes("ENGLISH") || matchedFilters.includes("US_INCLUDING");
+      // if (!isStats) {
+      //   updateCategoryStats(project);
+      // }
     }
-
     return res.sendStatus(200);
   } catch (err) {
     console.error("❌ Error:", err);
