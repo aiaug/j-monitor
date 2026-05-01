@@ -363,3 +363,97 @@ app.listen(PORT, "0.0.0.0", () => {
 });
 
 //pm2 start npx --name jobmonitor -- ts-node src/index.ts   pm2 restart jobmonitor
+
+
+
+
+// - Accounting & Consulting 
+// Accounting & Bookkeeping : 34
+//  Financial Planning : 19  
+// Management Consulting & Analysis : 20
+// Other - Accounting & Consulting : 10
+// Personal & Professional Coaching : 4
+// Recruiting & Human Resources : 5
+
+//  - Customer Service 
+// Community Management & Tagging : 0 
+// Customer Service & Tech Support : 0 
+
+
+//  - Admin Support 
+// Data Entry & Transcription Services : 7
+// Market Research & Product Reviews : 9
+// Project Management : 5
+// Virtual Assistance : 14
+
+//  - Data Science & Analytics 
+// AI & Machine Learning : 15
+// Data Analysis & Testing : 23
+// Data Extraction/ETL : 4
+// Data Mining & Management : 3
+
+//  - Design & Creative 
+// Art & Illustration : 6
+// Audio & Music Production : 7
+// Branding & Logo Design : 24
+// NFT, AR/VR & Game Art : 0
+// Graphic, Editorial & Presentation Design : 58
+// Performing Arts : 28
+// Photography : 7
+// Product Design : 18
+// Video & Animation : 99
+
+//  - Engineering & Architecture 
+// 3D Modeling & CAD : 22
+// Building & Landscape Architecture : 13
+// Chemical Engineering : 0
+// Civil & Structural Engineering : 9
+// Contract Manufacturing : 2
+// Electrical & Electronic Engineering : 8
+// Energy & Mechanical Engineering : 7
+// Interior & Trade Show Design : 6
+// Physical Sciences : 1
+
+//  - IT & Networking 
+// Database Management & Administration : 2
+// DevOps & Solution Architecture : 15
+// ERP/CRM Software : 5
+// Information Security & Compliance : 10
+// Network & System Administration : 17
+
+//  - Legal 
+// Corporate & Contract Law : 30
+// International & Immigration Law : 3
+// Public Law : 11
+
+//  - Sales & Marketing
+// Digital Marketing : 110
+// Lead Generation & Telemarketing : 53
+// Marketing, PR & Brand Strategy : 25
+
+//  - Translation 
+// Language Tutoring & Interpretation : 2
+// Translation & Localization Services : 15
+
+//  - Web, Mobile & Software Dev 
+// AI Apps & Integration : 5
+// Blockchain, NFT & Cryptocurrency : 2
+// Desktop Application Development : 2
+// Ecommerce Development : 25
+// Mobile Development : 41
+// Other - Software Development : 3
+// Product Management & Scrum : 5
+// QA & Testing : 4
+// Scripts & Utilities : 19
+// Web & Mobile Design : 62
+// Web Development : 102
+// Game Design & Development : 0
+
+//  - Writing 
+// Content Writing : 18
+// Editing & Proofreading Services : 13
+// Professional & Business Writing : 15
+// Sales & Marketing Copywriting : 6
+
+
+
